@@ -45,24 +45,23 @@
 #endif
 #define FLASH_SECTOR_SIZE        4096
 
-void console_loop(void);
-
-const uint8_t expected[] = {0xb9};
-const size_t len = sizeof(expected);
-uint8_t buf[sizeof(expected)];
-const struct device *flash_dev;
-int rc;
 
 void main(void)
 {
+	const uint8_t expected[] = {0xb9};
+	const size_t len = sizeof(expected);
+	uint8_t buf[sizeof(expected)];
+	const struct device *flash_dev;
+	int rc;
 	printk("\n" FLASH_NAME " SPI flash testing\n");
 	printk("==========================\n");
 
 	flash_dev = device_get_binding(FLASH_DEVICE);
 
-	if (!flash_dev) {
+	if (!flash_dev)
+	{
 		printk("SPI flash driver %s was not found!\n",
-		       FLASH_DEVICE);
+			   FLASH_DEVICE);
 		return;
 	}
 
@@ -74,10 +73,13 @@ void main(void)
 	printk("\nTest 1: Flash erase\n");
 
 	rc = flash_erase(flash_dev, FLASH_TEST_REGION_OFFSET,
-			 FLASH_SECTOR_SIZE);
-	if (rc != 0) {
+					 FLASH_SECTOR_SIZE);
+	if (rc != 0)
+	{
 		printk("Flash erase failed! %d\n", rc);
-	} else {
+	}
+	else
+	{
 		printk("Flash erase succeeded!\n");
 	}
 
@@ -85,39 +87,40 @@ void main(void)
 
 	printk("Attempting to write %zu bytes\n", len);
 	rc = flash_write(flash_dev, FLASH_TEST_REGION_OFFSET, expected, len);
-	if (rc != 0) {
+	if (rc != 0)
+	{
 		printk("Flash write failed! %d\n", rc);
 		return;
 	}
 
 	memset(buf, 0, len);
 	rc = flash_read(flash_dev, FLASH_TEST_REGION_OFFSET, buf, len);
-	if (rc != 0) {
+	if (rc != 0)
+	{
 		printk("Flash read failed! %d\n", rc);
 		return;
 	}
 
-	if (memcmp(expected, buf, len) == 0) {
+	if (memcmp(expected, buf, len) == 0)
+	{
 		printk("Data read matches data written. Good!!\n");
-	} else {
+	}
+	else
+	{
 		const uint8_t *wp = expected;
 		const uint8_t *rp = buf;
 		const uint8_t *rpe = rp + len;
 
 		printk("Data read does not match data written!!\n");
-		while (rp < rpe) {
+		while (rp < rpe)
+		{
 			printk("%08x wrote %02x read %02x %s\n",
-			       (uint32_t)(FLASH_TEST_REGION_OFFSET + (rp - buf)),
-			       *wp, *rp, (*rp == *wp) ? "match" : "MISMATCH");
+				   (uint32_t)(FLASH_TEST_REGION_OFFSET + (rp - buf)),
+				   *wp, *rp, (*rp == *wp) ? "match" : "MISMATCH");
 			++rp;
 			++wp;
 		}
 	}
-console_loop();
-}
-
-void console_loop(void)
-{
 	/*CUSTOM CODE.*/
 	// initialize console for commands.
 	console_getline_init();
@@ -142,15 +145,7 @@ void console_loop(void)
 		}
 		else if (strcmp(s, "READ BUFFER") == 0)
 		{
-			char results;
-			rc = flash_read(flash_dev, FLASH_TEST_REGION_OFFSET, buf, len);
-			if (rc != 0)
-			{
-				printk("Flash read failed! %d\n", rc);
-				return;
-			}
-			strcpy(results,buf);
-			printk("Buffer value: %s\n", results);
+			// Insert code to print the buffer content into the console.
 		}
 		else if (strcmp(s, "GET-BUFF DEC") == 0)
 		{
