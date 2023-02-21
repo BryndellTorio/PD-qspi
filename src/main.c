@@ -18,6 +18,9 @@
 #include <console/console.h>
 #include <ctype.h>
 
+// ADDED: for threading
+#include <sys/__assert.h>
+
 #if (CONFIG_SPI_NOR - 0) ||				\
 	DT_NODE_HAS_STATUS(DT_INST(0, jedec_spi_nor), okay)
 #define FLASH_DEVICE DT_LABEL(DT_INST(0, jedec_spi_nor))
@@ -45,14 +48,18 @@
 #endif
 #define FLASH_SECTOR_SIZE        4096
 
+// ADDED: for threading
+#define STACKSIZE 1024
+#define PRIORITY 7
 
-void main(void)
+const uint8_t expected[] = {0xb9};
+const size_t len = sizeof(expected);
+uint8_t buf[sizeof(expected)];
+const struct device *flash_dev;
+int rc;
+
+void qspi_loop(void)
 {
-	const uint8_t expected[] = {0xb9};
-	const size_t len = sizeof(expected);
-	uint8_t buf[sizeof(expected)];
-	const struct device *flash_dev;
-	int rc;
 	printk("\n" FLASH_NAME " SPI flash testing\n");
 	printk("==========================\n");
 
@@ -65,62 +72,25 @@ void main(void)
 		return;
 	}
 
-	/* Write protection needs to be disabled before each write or
-	 * erase, since the flash component turns on write protection
-	 * automatically after completion of write and erase
-	 * operations.
-	 */
-	// printk("\nTest 1: Flash erase\n");
+	while (1)
+	{
+		memset(buf, 0, len);
+		rc = flash_read(flash_dev, FLASH_TEST_REGION_OFFSET, buf, len);
+		if (rc != 0)
+		{
+			printk("Flash read failed! %d\n", rc);
+			return;
+		}
+		printk("buffer: %x\n>>> ", buf[0]);
+		k_msleep(1000);
+	}
+}
 
-	// rc = flash_erase(flash_dev, FLASH_TEST_REGION_OFFSET,
-	// 				 FLASH_SECTOR_SIZE);
-	// if (rc != 0)
-	// {
-	// 	printk("Flash erase failed! %d\n", rc);
-	// }
-	// else
-	// {
-	// 	printk("Flash erase succeeded!\n");
-	// }
+// K_THREAD_DEFINE should be here for the ON/OFF command to see that qspi_loop_id is defined.
+K_THREAD_DEFINE(qspi_loop_id, STACKSIZE, qspi_loop, NULL, NULL, NULL, PRIORITY, 0, 0);
 
-	// printk("\nTest 2: Flash write\n");
-
-	// printk("Attempting to write %zu bytes\n", len);
-	// rc = flash_write(flash_dev, FLASH_TEST_REGION_OFFSET, expected, len);
-	// if (rc != 0)
-	// {
-	// 	printk("Flash write failed! %d\n", rc);
-	// 	return;
-	// }
-
-	// memset(buf, 0, len);
-	// rc = flash_read(flash_dev, FLASH_TEST_REGION_OFFSET, buf, len);
-	// if (rc != 0)
-	// {
-	// 	printk("Flash read failed! %d\n", rc);
-	// 	return;
-	// }
-
-	// if (memcmp(expected, buf, len) == 0)
-	// {
-	// 	printk("Data read matches data written. Good!!\n");
-	// }
-	// else
-	// {
-	// 	const uint8_t *wp = expected;
-	// 	const uint8_t *rp = buf;
-	// 	const uint8_t *rpe = rp + len;
-
-	// 	printk("Data read does not match data written!!\n");
-	// 	while (rp < rpe)
-	// 	{
-	// 		printk("%08x wrote %02x read %02x %s\n",
-	// 			   (uint32_t)(FLASH_TEST_REGION_OFFSET + (rp - buf)),
-	// 			   *wp, *rp, (*rp == *wp) ? "match" : "MISMATCH");
-	// 		++rp;
-	// 		++wp;
-	// 	}
-	// }
+void uart_console(void)
+{
 	/*CUSTOM CODE.*/
 	// initialize console for commands.
 	console_getline_init();
@@ -139,10 +109,19 @@ void main(void)
 			}
 			printk("Deep power-down mode initiated.\n>>> ");
 		}
+		else if (strcmp(s, "FLASH STANDBY") == 0)
+		{
+			const uint8_t dummy_load[] = {0x11};
+			rc = flash_write(flash_dev, FLASH_TEST_REGION_OFFSET, dummy_load, len);
+			if (rc != 0)
+			{
+				printk("Failed to write to flash.");
+			}
+			printk("Stanby mode activated.\n>>> ");
+		}
 		else if (strcmp(s, "FLASH ERASE") == 0)
 		{
-			rc = flash_erase(flash_dev, FLASH_TEST_REGION_OFFSET,
-							 FLASH_SECTOR_SIZE);
+			rc = flash_erase(flash_dev, FLASH_TEST_REGION_OFFSET, FLASH_SECTOR_SIZE);
 			if (rc != 0)
 			{
 				printk("Flash erase failed! %d\n", rc);
@@ -160,16 +139,6 @@ void main(void)
 			}
 			printk("buffer: %x\n>>> ", buf[0]);
 		}
-		else if (strcmp(s, "FLASH STANDBY") == 0)
-		{
-			const uint8_t dummy_load[] = {0x11};
-			rc = flash_write(flash_dev, FLASH_TEST_REGION_OFFSET, dummy_load, len);
-			if (rc != 0)
-			{
-				printk("Failed to write to flash.");
-			}
-			printk("Stanby mode activated.\n>>> ");
-		}
 		else if (strcmp(s, "GET-BUFF DEC") == 0)
 		{
 			printk("Buffer: %d\n>>> ", expected[0]);
@@ -178,23 +147,21 @@ void main(void)
 		{
 			printk("Buffer: %x\n>>> ", expected[0]);
 		}
+		else if (strcmp(s, "LOOP ON") == 0)
+		{
+			k_thread_resume(qspi_loop_id);
+			printk("Loop activated.\n>>> ");
+		}
+		else if (strcmp(s, "LOOP OFF") == 0)
+		{
+			k_thread_suspend(qspi_loop_id);
+			printk("Loop deactivated.\n>>> ");
+		}
 		else
 		{
 			printk("Command not found.\n>>> ");
 		}
 	}
-
-	while (1)
-	{
-		memset(buf, 0, len);
-		rc = flash_read(flash_dev, FLASH_TEST_REGION_OFFSET, buf, len);
-		if (rc != 0)
-		{
-			printk("Flash read failed! %d\n", rc);
-			return;
-		}
-		printk("buffer: %x\n>>> ", buf[0]);
-		k_msleep(1000);
-	}
-	/*END OF CODE.*/
 }
+
+K_THREAD_DEFINE(uart_console_id, STACKSIZE, uart_console, NULL, NULL, NULL, PRIORITY, 0, 0);
