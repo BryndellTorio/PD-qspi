@@ -70,57 +70,57 @@ void main(void)
 	 * automatically after completion of write and erase
 	 * operations.
 	 */
-	printk("\nTest 1: Flash erase\n");
+	// printk("\nTest 1: Flash erase\n");
 
-	rc = flash_erase(flash_dev, FLASH_TEST_REGION_OFFSET,
-					 FLASH_SECTOR_SIZE);
-	if (rc != 0)
-	{
-		printk("Flash erase failed! %d\n", rc);
-	}
-	else
-	{
-		printk("Flash erase succeeded!\n");
-	}
+	// rc = flash_erase(flash_dev, FLASH_TEST_REGION_OFFSET,
+	// 				 FLASH_SECTOR_SIZE);
+	// if (rc != 0)
+	// {
+	// 	printk("Flash erase failed! %d\n", rc);
+	// }
+	// else
+	// {
+	// 	printk("Flash erase succeeded!\n");
+	// }
 
-	printk("\nTest 2: Flash write\n");
+	// printk("\nTest 2: Flash write\n");
 
-	printk("Attempting to write %zu bytes\n", len);
-	rc = flash_write(flash_dev, FLASH_TEST_REGION_OFFSET, expected, len);
-	if (rc != 0)
-	{
-		printk("Flash write failed! %d\n", rc);
-		return;
-	}
+	// printk("Attempting to write %zu bytes\n", len);
+	// rc = flash_write(flash_dev, FLASH_TEST_REGION_OFFSET, expected, len);
+	// if (rc != 0)
+	// {
+	// 	printk("Flash write failed! %d\n", rc);
+	// 	return;
+	// }
 
-	memset(buf, 0, len);
-	rc = flash_read(flash_dev, FLASH_TEST_REGION_OFFSET, buf, len);
-	if (rc != 0)
-	{
-		printk("Flash read failed! %d\n", rc);
-		return;
-	}
+	// memset(buf, 0, len);
+	// rc = flash_read(flash_dev, FLASH_TEST_REGION_OFFSET, buf, len);
+	// if (rc != 0)
+	// {
+	// 	printk("Flash read failed! %d\n", rc);
+	// 	return;
+	// }
 
-	if (memcmp(expected, buf, len) == 0)
-	{
-		printk("Data read matches data written. Good!!\n");
-	}
-	else
-	{
-		const uint8_t *wp = expected;
-		const uint8_t *rp = buf;
-		const uint8_t *rpe = rp + len;
+	// if (memcmp(expected, buf, len) == 0)
+	// {
+	// 	printk("Data read matches data written. Good!!\n");
+	// }
+	// else
+	// {
+	// 	const uint8_t *wp = expected;
+	// 	const uint8_t *rp = buf;
+	// 	const uint8_t *rpe = rp + len;
 
-		printk("Data read does not match data written!!\n");
-		while (rp < rpe)
-		{
-			printk("%08x wrote %02x read %02x %s\n",
-				   (uint32_t)(FLASH_TEST_REGION_OFFSET + (rp - buf)),
-				   *wp, *rp, (*rp == *wp) ? "match" : "MISMATCH");
-			++rp;
-			++wp;
-		}
-	}
+	// 	printk("Data read does not match data written!!\n");
+	// 	while (rp < rpe)
+	// 	{
+	// 		printk("%08x wrote %02x read %02x %s\n",
+	// 			   (uint32_t)(FLASH_TEST_REGION_OFFSET + (rp - buf)),
+	// 			   *wp, *rp, (*rp == *wp) ? "match" : "MISMATCH");
+	// 		++rp;
+	// 		++wp;
+	// 	}
+	// }
 	/*CUSTOM CODE.*/
 	// initialize console for commands.
 	console_getline_init();
@@ -130,7 +130,7 @@ void main(void)
 	{
 		char *s = console_getline();
 
-		if (strcmp(s, "ON") == 0)
+		if (strcmp(s, "FLASH PD") == 0)
 		{
 			rc = flash_write(flash_dev, FLASH_TEST_REGION_OFFSET, expected, len);
 			if (rc != 0)
@@ -139,13 +139,36 @@ void main(void)
 			}
 			printk("Deep power-down mode initiated.\n>>> ");
 		}
-		else if (strcmp(s, "OFF") == 0)
+		else if (strcmp(s, "FLASH ERASE") == 0)
 		{
-			printk("Standby mode initiated.\n>>> ");
+			rc = flash_erase(flash_dev, FLASH_TEST_REGION_OFFSET,
+							 FLASH_SECTOR_SIZE);
+			if (rc != 0)
+			{
+				printk("Flash erase failed! %d\n", rc);
+			}
+			printk("Erase flash memory.\n>>> ");
 		}
 		else if (strcmp(s, "READ BUFFER") == 0)
 		{
-			// Insert code to print the buffer content into the console.
+			memset(buf, 0, len);
+			rc = flash_read(flash_dev, FLASH_TEST_REGION_OFFSET, buf, len);
+			if (rc != 0)
+			{
+				printk("Flash read failed! %d\n", rc);
+				return;
+			}
+			printk("buffer: %x\n>>> ", buf[0]);
+		}
+		else if (strcmp(s, "FLASH STANDBY") == 0)
+		{
+			const uint8_t dummy_load[] = {0x11};
+			rc = flash_write(flash_dev, FLASH_TEST_REGION_OFFSET, dummy_load, len);
+			if (rc != 0)
+			{
+				printk("Failed to write to flash.");
+			}
+			printk("Stanby mode activated.\n>>> ");
 		}
 		else if (strcmp(s, "GET-BUFF DEC") == 0)
 		{
@@ -159,6 +182,19 @@ void main(void)
 		{
 			printk("Command not found.\n>>> ");
 		}
+	}
+
+	while (1)
+	{
+		memset(buf, 0, len);
+		rc = flash_read(flash_dev, FLASH_TEST_REGION_OFFSET, buf, len);
+		if (rc != 0)
+		{
+			printk("Flash read failed! %d\n", rc);
+			return;
+		}
+		printk("buffer: %x\n>>> ", buf[0]);
+		k_msleep(1000);
 	}
 	/*END OF CODE.*/
 }
