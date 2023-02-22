@@ -52,11 +52,15 @@
 #define STACKSIZE 1024
 #define PRIORITY 7
 
+#define FALSE 0
+#define TRUE 1
+
 const uint8_t expected[] = {0xb9};
 const size_t len = sizeof(expected);
 uint8_t buf[sizeof(expected)];
 const struct device *flash_dev;
 int rc;
+int LOOP_STATE = FALSE;
 
 void qspi_loop(void)
 {
@@ -149,13 +153,31 @@ void uart_console(void)
 		}
 		else if (strcmp(s, "LOOP ON") == 0)
 		{
-			k_thread_resume(qspi_loop_id);
-			printk("Loop activated.\n");
+			switch (LOOP_STATE)
+			{
+			case 1:
+				k_thread_resume(qspi_loop_id);
+				printk("Loop activated.\n");
+				LOOP_STATE = FALSE;
+				break;
+			default:
+				printk("Loop is currently active.\n");
+				break;
+			}
 		}
 		else if (strcmp(s, "LOOP OFF") == 0)
 		{
-			k_thread_suspend(qspi_loop_id);
-			printk("Loop deactivated.\n>>> ");
+			switch (LOOP_STATE)
+			{
+			case 0:
+				k_thread_suspend(qspi_loop_id);
+				printk("Loop deactivated.\n>>> ");
+				LOOP_STATE = TRUE;
+				break;
+			default:
+				printk("Loop is already deactivated.\n>>> ");
+				break;
+			}
 		}
 		else
 		{
