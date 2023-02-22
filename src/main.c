@@ -81,7 +81,7 @@ void qspi_loop(void)
 			printk("Flash read failed! %d\n", rc);
 			return;
 		}
-		printk("buffer: %x\n>>> ", buf[0]);
+		printk("buffer: %x\n", buf[0]);
 		k_msleep(1000);
 	}
 }
@@ -150,7 +150,7 @@ void uart_console(void)
 		else if (strcmp(s, "LOOP ON") == 0)
 		{
 			k_thread_resume(qspi_loop_id);
-			printk("Loop activated.\n>>> ");
+			printk("Loop activated.\n");
 		}
 		else if (strcmp(s, "LOOP OFF") == 0)
 		{
